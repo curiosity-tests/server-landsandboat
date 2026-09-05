@@ -5,16 +5,44 @@ on:
     branches:
       - base
   workflow_dispatch:
+    inputs:
+      leg:
+        description: "baseline (uninstrumented) or instrumented (under chalk/curiosity)"
+        type: choice
+        options: [instrumented, baseline]
+        default: instrumented
+      profile:
+        description: "CrashOverride chalk profile"
+        type: string
+        default: curiosity-tests-racecar
+      racecar_run:
+        description: "racecar correlation token, echoed into the run name"
+        type: string
+        default: ""
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ inputs.leg || 'push' }}-${{ inputs.racecar_run }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  # The one variable that separates the arms: on baseline, action-checkout
+  # skips its Set up Chalk step entirely.
+  CHALK_ON: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+
+run-name: "Builds ${{ inputs.leg || 'push' }} ${{ inputs.racecar_run }}"
 
 jobs:
   Clang_Tidy:
     name: Clang Tidy
     uses: ./.github/workflows/runner_build.yml
     with:
+      chalk_on: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+      profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+      racecar_run: ${{ inputs.racecar_run }}
       runner: ubuntu-26.04
       compiler: clang
       compiler_version: 22
@@ -31,38 +59,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - build_type: Release
-            runner: windows-2025
-            compiler: msvc
-            tracy: false
-            build_modules: false
-            save_cache: false
-            upload_artifact: true
-            clang_tidy: false
-          - build_type: Release
-            runner: macos-26
-            compiler: appleClang
-            tracy: false
-            build_modules: false
-            save_cache: false
-            upload_artifact: true
-            clang_tidy: false
-          - build_type: Debug
-            runner: windows-2025
-            compiler: msvc
-            tracy: false
-            build_modules: false
-            save_cache: true
-            upload_artifact: false
-            clang_tidy: false
-          - build_type: Debug
-            runner: macos-26
-            compiler: appleClang
-            tracy: false
-            build_modules: false
-            save_cache: true
-            upload_artifact: false
-            clang_tidy: false
           - build_type: Debug
             runner: ubuntu-26.04
             compiler: gcc
@@ -85,6 +81,9 @@ jobs:
             clang_tidy: false
     uses: ./.github/workflows/runner_build.yml
     with:
+      chalk_on: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+      profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+      racecar_run: ${{ inputs.racecar_run }}
       runner: ${{ matrix.runner }}
       compiler: ${{ matrix.compiler }}
       compiler_version: ${{ matrix.compiler_version }}
@@ -129,6 +128,9 @@ jobs:
             publish: true
     uses: ./.github/workflows/docker_build.yml
     with:
+      chalk_on: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+      profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+      racecar_run: ${{ inputs.racecar_run }}
       os: ${{ matrix.os }}
       compiler: ${{ matrix.compiler }}
       compiler_version: ${{ matrix.compiler_version }}
