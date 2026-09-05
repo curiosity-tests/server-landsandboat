@@ -3,6 +3,18 @@ name: Reusable Docker Build Workflow
 on:
   workflow_call:
     inputs:
+      chalk_on:
+        description: "racecar: instrumented arm switch, passed down by the caller"
+        type: string
+        default: "false"
+      profile:
+        description: "CrashOverride chalk profile"
+        type: string
+        default: curiosity-tests-racecar
+      racecar_run:
+        description: "racecar correlation token, forwarded by the caller"
+        type: string
+        default: ""
       os:
         description: 'OS (Dockerfile) to build with.'
         required: true
@@ -50,6 +62,15 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  # The one variable that separates the arms: on baseline, action-checkout
+  # skips its Set up Chalk step entirely.
+  CHALK_ON: ${{ inputs.chalk_on }}
+
 jobs:
   Docker_Build:
     name: ${{ format('docker-{0}, {1}{2}, {3}', inputs.os, inputs.compiler, inputs.compiler_version, inputs.build_type) }}
@@ -57,6 +78,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
     env:
       BUILDX_NO_DEFAULT_ATTESTATIONS: 1 # https://github.com/orgs/community/discussions/45969
       # Passed to the Dockerfile as BUILD_CACHE_ID, and must stay equal to the mount ids it derives.
@@ -78,9 +100,19 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/checkout@v6
+      - name: Checkout code
+        uses: crashappsec/action-checkout@main
         with:
+          chalk: ${{ env.CHALK_ON }}
+          profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+          observables_continue_on_error: false
+          lfs: false
           fetch-depth: 1
+      - name: Assert instrumentation is live
+        if: env.CHALK_ON == 'true'
+        run: |
+          test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+          test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
 
       - name: Enable modules
         if: ${{ inputs.build_modules }}
