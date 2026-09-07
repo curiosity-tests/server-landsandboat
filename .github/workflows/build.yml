@@ -40,7 +40,7 @@ jobs:
     name: Clang Tidy
     uses: ./.github/workflows/runner_build.yml
     with:
-      chalk_on: ${{ inputs.leg == 'instrumented' }}
+      chalk_on: ${{ inputs.leg == 'instrumented' && 'true' || 'false' }}
       profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
       racecar_run: ${{ inputs.racecar_run }}
       runner: ubuntu-26.04
@@ -81,7 +81,7 @@ jobs:
             clang_tidy: false
     uses: ./.github/workflows/runner_build.yml
     with:
-      chalk_on: ${{ inputs.leg == 'instrumented' }}
+      chalk_on: ${{ inputs.leg == 'instrumented' && 'true' || 'false' }}
       profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
       racecar_run: ${{ inputs.racecar_run }}
       runner: ${{ matrix.runner }}
@@ -128,7 +128,7 @@ jobs:
             publish: true
     uses: ./.github/workflows/docker_build.yml
     with:
-      chalk_on: ${{ inputs.leg == 'instrumented' }}
+      chalk_on: ${{ inputs.leg == 'instrumented' && 'true' || 'false' }}
       profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
       racecar_run: ${{ inputs.racecar_run }}
       os: ${{ matrix.os }}
