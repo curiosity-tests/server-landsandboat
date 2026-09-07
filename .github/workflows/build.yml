@@ -27,6 +27,12 @@ concurrency:
 permissions:
   contents: read
   id-token: write
+  # docker_build.yml's job declares `packages: write`. A called workflow
+  # cannot request a scope the caller lacks, and declaring this block at all
+  # zeroes every unlisted scope -- upstream declares no block, so it inherited
+  # packages from the default token. Omitting it here made every run a
+  # startup_failure with zero jobs and no annotation.
+  packages: write
 
 env:
   # The one variable that separates the arms: on baseline, action-checkout
